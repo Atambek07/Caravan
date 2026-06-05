@@ -194,6 +194,7 @@ cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 export DB_HOST=localhost POSTGRES_DB=caravan POSTGRES_USER=caravan POSTGRES_PASSWORD=caravan_secret
+export DEBUG=True
 python manage.py migrate
 python manage.py runserver
 ```
