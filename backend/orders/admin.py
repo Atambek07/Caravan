@@ -8,15 +8,20 @@ from orders.models import Order, OrderItem, OrderStatus
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
-    readonly_fields = ('product', 'quantity', 'price')
+    readonly_fields = ('product', 'quantity', 'price', 'subtotal')
     can_delete = False
+    fields = ('product', 'quantity', 'price', 'subtotal')
+
+    @admin.display(description='Сумма')
+    def subtotal(self, obj):
+        return obj.subtotal
 
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'customer', 'store', 'status', 'total_amount',
-        'created_at', 'updated_at',
+        'id', 'customer', 'store', 'status_badge', 'total_amount',
+        'items_count', 'created_at', 'updated_at',
     )
     list_filter = ('status', ('created_at', admin.DateFieldListFilter))
     search_fields = (
@@ -26,10 +31,41 @@ class OrderAdmin(admin.ModelAdmin):
     readonly_fields = ('total_amount', 'created_at', 'updated_at')
     inlines = [OrderItemInline]
     date_hierarchy = 'created_at'
+    list_select_related = ('customer', 'store')
+    autocomplete_fields = ('customer', 'store')
+    list_per_page = 30
+    save_on_top = True
     actions = [
         'mark_confirmed', 'mark_processing', 'mark_ready',
         'mark_shipped', 'mark_delivered', 'mark_canceled',
     ]
+    fieldsets = (
+        ('Основное', {'fields': ('customer', 'store', 'status')}),
+        ('Детали', {'fields': ('comment',)}),
+        ('Сумма и даты', {'fields': ('total_amount', 'created_at', 'updated_at')}),
+    )
+
+    @admin.display(description='Статус')
+    def status_badge(self, obj):
+        colors = {
+            OrderStatus.NEW: '#1d4ed8',
+            OrderStatus.CONFIRMED: '#4f46e5',
+            OrderStatus.PROCESSING: '#b45309',
+            OrderStatus.READY_TO_SHIP: '#7c3aed',
+            OrderStatus.SHIPPED: '#0369a1',
+            OrderStatus.DELIVERED: '#166534',
+            OrderStatus.CANCELED: '#b91c1c',
+        }
+        color = colors.get(obj.status, '#374151')
+        return format_html(
+            '<span style="font-weight:600; color:{};">{}</span>',
+            color,
+            obj.get_status_display(),
+        )
+
+    @admin.display(description='Позиций')
+    def items_count(self, obj):
+        return obj.items.count()
 
     @admin.action(description='Подтвердить')
     def mark_confirmed(self, request, queryset):
